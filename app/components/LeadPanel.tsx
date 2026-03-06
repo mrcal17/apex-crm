@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { UserPlus, X, User, Search, ChevronDown, ArrowRightCircle } from "lucide-react";
 import { leadService, type Lead } from "../../lib/leadService";
 import { projectService, supabase } from "../../lib/projectService";
+import type { Role } from "../../lib/roles";
 
 function scoreLead(lead: Lead): { score: number; label: "Hot" | "Warm" | "Cold"; color: string; bg: string } {
   let score = 0;
@@ -22,7 +23,6 @@ function scoreLead(lead: Lead): { score: number; label: "Hot" | "Warm" | "Cold";
   const bg = score >= 60 ? "bg-red-500/10 border-red-500/20" : score >= 30 ? "bg-amber-500/10 border-amber-500/20" : "bg-blue-500/10 border-blue-500/20";
   return { score, label, color, bg };
 }
-import type { Role } from "../../lib/roles";
 
 interface LeadPanelProps {
   onLeadSelect?: (address: string) => void;
@@ -70,6 +70,7 @@ export default function LeadPanel({ onLeadSelect, onConverted, role = "sales_rep
   }, []);
 
   const selectedLead = useMemo(() => leads.find((l) => l.id === selectedId) ?? null, [leads, selectedId]);
+  const selectedLeadScore = useMemo(() => selectedLead ? scoreLead(selectedLead) : null, [selectedLead]);
   const filteredLeads = useMemo(() => {
     if (!searchTerm) return leads;
     const term = searchTerm.toLowerCase();
@@ -271,9 +272,10 @@ export default function LeadPanel({ onLeadSelect, onConverted, role = "sales_rep
           <div className="space-y-1.5">
             <div className="flex items-center justify-between gap-1">
               <p className="text-[11px] font-semibold text-white truncate">{selectedLead.name}</p>
-              {(() => { const { label, color, bg, score } = scoreLead(selectedLead); return (
-                <span className={`shrink-0 text-[8px] font-bold px-1.5 py-0.5 rounded-full border ${color} ${bg}`} title={`Lead score: ${score}/100`}>{label}</span>
-              ); })()}</div>
+              {selectedLeadScore && (
+                <span className={`shrink-0 text-[8px] font-bold px-1.5 py-0.5 rounded-full border ${selectedLeadScore.color} ${selectedLeadScore.bg}`} title={`Lead score: ${selectedLeadScore.score}/100`}>{selectedLeadScore.label}</span>
+              )}
+            </div>
             {selectedLead.street && (
               <div>
                 <p className="text-[9px] uppercase text-gray-600 font-medium leading-none mb-0.5">Address</p>
