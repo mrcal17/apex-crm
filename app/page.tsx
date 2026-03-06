@@ -995,7 +995,7 @@ const ApexDashboard = () => {
         </div>
       )}
 
-      <div>
+      <div className="mt-10">
         {/* Project Tracker */}
         <div className="glass-card-elevated rounded-2xl overflow-hidden">
           <div className="p-4 sm:p-6 border-b border-white/[0.06] bg-gradient-to-r from-white/[0.02] to-transparent">
@@ -1094,8 +1094,13 @@ const ApexDashboard = () => {
                         <td className="px-3 py-4" onClick={(e) => e.stopPropagation()}>
                           <input type="checkbox" checked={bulkSelected.has(p.id)} onChange={() => toggleBulkSelect(p.id)} className="crm-checkbox" />
                         </td>
-                        <td className="px-6 py-4 align-middle">
-                          <div className="relative">
+                        <td className="px-6 py-4 relative">
+                          {p.created_at && (
+                            <span className="absolute top-1.5 left-2 text-[10px] text-gray-600 inline-flex items-center gap-0.5">
+                              <Clock size={9} /> {relativeTime(p.created_at)}
+                            </span>
+                          )}
+                          <div className="pt-3">
                             <div className="flex items-center gap-1.5">
                               <p className="font-medium text-white/90">{p.name}</p>
                               {projectHealthScores.has(p.id) && (() => {
@@ -1107,7 +1112,6 @@ const ApexDashboard = () => {
                             <p className="text-xs text-gray-500">
                               {p.client_name}{p.profiles?.full_name ? ` \u2022 ${p.profiles.full_name}` : ""}
                             </p>
-                            {p.created_at && <span className="absolute top-0 right-0 text-[9px] text-gray-600 inline-flex items-center gap-0.5"><Clock size={8} /> {relativeTime(p.created_at)}</span>}
                           </div>
                         </td>
                         <td className="px-6 py-4">
