@@ -275,6 +275,29 @@ export default function AdminControlsPanel() {
     }
   }
 
+  async function handleDeleteUser(profileId: string, userName: string) {
+    if (!window.confirm(`Permanently delete "${userName || 'this user'}"? This will remove their profile, auth account, and all associated data. This cannot be undone.`)) return;
+    setProcessingUserId(profileId);
+    try {
+      const token = await getAuthToken();
+      const res = await fetch("/api/admin/users", {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ profileId }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to delete user");
+      }
+      fetchAllUsers();
+      fetchStats();
+    } catch (err: any) {
+      console.error(err);
+    } finally {
+      setProcessingUserId(null);
+    }
+  }
+
   async function handleToggleUserActive(profileId: string, currentlyApproved: boolean) {
     const action = currentlyApproved ? "deactivate" : "reactivate";
     if (!window.confirm(`${currentlyApproved ? "Deactivate" : "Reactivate"} this user?`)) return;
@@ -585,19 +608,28 @@ export default function AdminControlsPanel() {
                         {new Date(u.created_at).toLocaleDateString()}
                       </td>
                       <td className="px-4 py-2.5">
-                        <button
-                          onClick={() => handleToggleUserActive(u.id, u.approval_status === "approved")}
-                          className={`text-[10px] font-medium px-2 py-1 rounded-lg border transition-all ${
-                            u.approval_status === "approved"
-                              ? "text-red-400 bg-red-500/10 border-red-500/20 hover:bg-red-500/20"
-                              : "text-emerald-400 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20"
-                          }`}>
-                          {u.approval_status === "approved" ? (
-                            <span className="flex items-center gap-1"><Ban size={10} /> Deactivate</span>
-                          ) : (
-                            <span className="flex items-center gap-1"><Undo2 size={10} /> Reactivate</span>
-                          )}
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => handleToggleUserActive(u.id, u.approval_status === "approved")}
+                            className={`text-[10px] font-medium px-2 py-1 rounded-lg border transition-all ${
+                              u.approval_status === "approved"
+                                ? "text-red-400 bg-red-500/10 border-red-500/20 hover:bg-red-500/20"
+                                : "text-emerald-400 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20"
+                            }`}>
+                            {u.approval_status === "approved" ? (
+                              <span className="flex items-center gap-1"><Ban size={10} /> Deactivate</span>
+                            ) : (
+                              <span className="flex items-center gap-1"><Undo2 size={10} /> Reactivate</span>
+                            )}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteUser(u.id, u.full_name)}
+                            disabled={processingUserId === u.id}
+                            className="text-[10px] font-medium px-2 py-1 rounded-lg border text-red-400 bg-red-500/10 border-red-500/20 hover:bg-red-500/25 disabled:opacity-50 transition-all"
+                            title="Permanently delete user">
+                            {processingUserId === u.id ? <RefreshCw size={10} className="animate-spin" /> : <span className="flex items-center gap-1"><Trash2 size={10} /> Delete</span>}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

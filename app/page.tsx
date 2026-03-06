@@ -26,6 +26,13 @@ import {
   Sparkles,
   Settings,
   Shield,
+  Target,
+  Percent,
+  XCircle,
+  Zap,
+  Wallet,
+  BarChart2,
+  Activity,
 } from "lucide-react";
 import { supabase, projectService } from "../lib/projectService";
 import { useCountUp } from "./hooks/useCountUp";
@@ -148,6 +155,7 @@ const ApexDashboard = () => {
   const [recentlyCompleted, setRecentlyCompleted] = useState<Set<string>>(new Set());
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>("dashboard");
+  const [metricCategory, setMetricCategory] = useState<"all" | "revenue" | "projects" | "commissions" | "permits">("all");
   const [crmSettings, setCrmSettings] = useState<Record<string, string>>({});
   const [leadFocusAddress, setLeadFocusAddress] = useState<string>();
   const [solarData, setSolarData] = useState<any>(null);
@@ -651,91 +659,190 @@ const ApexDashboard = () => {
           </div>
         </div>
       ) : (<>
-      {/* KPI Cards - Row 1 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 mb-4 mt-6">
-        <div className="glass-card kpi-glow-green p-6 rounded-2xl group hover:border-green-500/20 transition-all duration-300 animate-slide-up stagger-1 opacity-0" style={{ animationFillMode: 'forwards' }}>
-          <div className="flex justify-between items-start mb-4">
-            <span className="text-gray-400 text-sm font-medium">Pipeline Value</span>
-            <div className="icon-glow icon-glow-green group-hover:scale-110 transition-transform">
-              <DollarSign className="text-emerald-400" size={20} />
-            </div>
-          </div>
-          <div className="text-3xl font-display font-bold tracking-tight bg-gradient-to-r from-emerald-300 to-[var(--accent)] bg-clip-text text-transparent">
-            $<AnimatedKPIDollar value={stats.totalPipeline} />
-          </div>
-        </div>
-
-        <div className="glass-card kpi-glow-purple p-6 rounded-2xl group hover:border-purple-500/20 transition-all duration-300 animate-slide-up stagger-2 opacity-0" style={{ animationFillMode: 'forwards' }}>
-          <div className="flex justify-between items-start mb-4">
-            <span className="text-gray-400 text-sm font-medium">Revenue Collected</span>
-            <div className="icon-glow icon-glow-purple group-hover:scale-110 transition-transform">
-              <TrendingUp className="text-purple-400" size={20} />
-            </div>
-          </div>
-          <div className="text-3xl font-display font-bold tracking-tight bg-gradient-to-r from-purple-300 to-violet-400 bg-clip-text text-transparent">
-            $<AnimatedKPIDollar value={stats.totalCollected} />
-          </div>
-          <div className="mt-3">
-            <div className="flex justify-between text-xs text-gray-500 mb-1.5">
-              <span>{pipelineProgress.toFixed(0)}% collected</span>
-              <span>${formatCompact(revenueGoal)}{goalPeriod ? ` ${goalPeriod}` : ""} goal</span>
-            </div>
-            <div className="h-1.5 bg-white/[0.04] rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-purple-500 via-violet-400 to-[var(--accent)] rounded-full transition-all duration-1000 ease-out" style={{ width: `${Math.min(pipelineProgress, 100)}%` }} />
-            </div>
-          </div>
-        </div>
-
-        <div className="glass-card kpi-glow-blue p-6 rounded-2xl group hover:border-blue-500/20 transition-all duration-300 animate-slide-up stagger-3 opacity-0" style={{ animationFillMode: 'forwards' }}>
-          <div className="flex justify-between items-start mb-4">
-            <span className="text-gray-400 text-sm font-medium">Active Permits</span>
-            <div className="icon-glow icon-glow-blue group-hover:scale-110 transition-transform">
-              <FileText className="text-cyan-400" size={20} />
-            </div>
-          </div>
-          <div className="text-3xl font-display font-bold tracking-tight text-cyan-300"><AnimatedKPIInt value={stats.activePermits} /></div>
-          {stats.expiringPermits > 0 && (
-            <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-400/80 bg-amber-500/10 rounded-lg px-2.5 py-1.5 border border-amber-500/10">
-              <AlertCircle size={12} /> {stats.expiringPermits} expiring within 30 days
-            </div>
-          )}
-        </div>
-
-        <div className="glass-card kpi-glow-amber p-6 rounded-2xl group hover:border-amber-500/20 transition-all duration-300 animate-slide-up stagger-4 opacity-0" style={{ animationFillMode: 'forwards' }}>
-          <div className="flex justify-between items-start mb-4">
-            <span className="text-gray-400 text-sm font-medium">Unpaid Commissions</span>
-            <div className="icon-glow icon-glow-amber group-hover:scale-110 transition-transform">
-              <Users className="text-amber-400" size={20} />
-            </div>
-          </div>
-          <div className="text-3xl font-display font-bold tracking-tight bg-gradient-to-r from-amber-300 to-orange-400 bg-clip-text text-transparent">
-            $<AnimatedKPIDollar value={commissionStats.unpaid} />
-          </div>
-          {commissionStats.count > 0 && (
-            <div className="mt-2 text-xs text-gray-500">{commissionStats.count} total &middot; ${formatCompact(commissionStats.paid)} paid</div>
-          )}
-        </div>
-      </div>
-
-      {/* KPI Cards - Row 2 */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-8">
-        {[
-          { icon: Briefcase, gradient: "from-[var(--accent)]/15 to-[var(--accent)]/5", color: "text-[var(--accent)]", label: "Total Projects", value: <AnimatedKPIInt value={projectStats.total} /> },
-          { icon: TrendingUp, gradient: "from-green-500/15 to-green-500/5", color: "text-green-400", label: "Avg. Value", value: <>$<AnimatedKPIDollar value={projectStats.avgValue} /></> },
-          { icon: CheckCircle, gradient: "from-emerald-500/15 to-emerald-500/5", color: "text-emerald-400", label: "Completed", value: <AnimatedKPIInt value={projectStats.byStatus["completed"] || 0} /> },
-          { icon: AlertCircle, gradient: "from-amber-500/15 to-amber-500/5", color: "text-amber-400", label: "In Progress", value: <AnimatedKPIInt value={projectStats.byStatus["in_progress"] || 0} /> },
-        ].map((item, i) => (
-          <div key={i} className={`glass-card px-4 py-3.5 rounded-xl flex items-center gap-3 hover:border-white/10 transition-all duration-200 group animate-slide-up stagger-${i + 5} opacity-0`} style={{ animationFillMode: 'forwards' }}>
-            <div className={`p-2 rounded-lg bg-gradient-to-br ${item.gradient}`}>
-              <item.icon className={`${item.color} shrink-0`} size={16} />
-            </div>
-            <div>
-              <p className="text-xs text-gray-500 group-hover:text-gray-400 transition-colors">{item.label}</p>
-              <p className="text-lg font-display font-bold">{item.value}</p>
-            </div>
-          </div>
+      {/* Metric Category Filter */}
+      <div className="flex gap-1 overflow-x-auto pb-1 mt-6 mb-4">
+        {([
+          { key: "all", label: "All Metrics" },
+          { key: "revenue", label: "Revenue" },
+          { key: "projects", label: "Projects" },
+          { key: "commissions", label: "Commissions" },
+          { key: "permits", label: "Permits" },
+        ] as const).map((cat) => (
+          <button key={cat.key} onClick={() => setMetricCategory(cat.key)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${
+              metricCategory === cat.key
+                ? "bg-[var(--accent)]/15 text-[var(--accent)] border border-[var(--accent)]/20"
+                : "text-gray-500 hover:text-white hover:bg-white/[0.04] border border-transparent"
+            }`}>
+            {cat.label}
+          </button>
         ))}
       </div>
+
+      {/* === REVENUE METRICS === */}
+      {(metricCategory === "all" || metricCategory === "revenue") && (
+        <div className="mb-4">
+          {metricCategory === "all" && <h3 className="text-xs uppercase tracking-wider text-gray-500 mb-3 flex items-center gap-1.5"><DollarSign size={12} /> Revenue</h3>}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+            <div className="glass-card kpi-glow-green p-6 rounded-2xl group hover:border-green-500/20 transition-all duration-300 animate-slide-up stagger-1 opacity-0" style={{ animationFillMode: 'forwards' }}>
+              <div className="flex justify-between items-start mb-4">
+                <span className="text-gray-400 text-sm font-medium">Pipeline Value</span>
+                <div className="icon-glow icon-glow-green group-hover:scale-110 transition-transform">
+                  <DollarSign className="text-emerald-400" size={20} />
+                </div>
+              </div>
+              <div className="text-3xl font-display font-bold tracking-tight bg-gradient-to-r from-emerald-300 to-[var(--accent)] bg-clip-text text-transparent">
+                $<AnimatedKPIDollar value={stats.totalPipeline} />
+              </div>
+            </div>
+
+            <div className="glass-card kpi-glow-purple p-6 rounded-2xl group hover:border-purple-500/20 transition-all duration-300 animate-slide-up stagger-2 opacity-0" style={{ animationFillMode: 'forwards' }}>
+              <div className="flex justify-between items-start mb-4">
+                <span className="text-gray-400 text-sm font-medium">Revenue Collected</span>
+                <div className="icon-glow icon-glow-purple group-hover:scale-110 transition-transform">
+                  <TrendingUp className="text-purple-400" size={20} />
+                </div>
+              </div>
+              <div className="text-3xl font-display font-bold tracking-tight bg-gradient-to-r from-purple-300 to-violet-400 bg-clip-text text-transparent">
+                $<AnimatedKPIDollar value={stats.totalCollected} />
+              </div>
+              <div className="mt-3">
+                <div className="flex justify-between text-xs text-gray-500 mb-1.5">
+                  <span>{pipelineProgress.toFixed(0)}% collected</span>
+                  <span>${formatCompact(revenueGoal)}{goalPeriod ? ` ${goalPeriod}` : ""} goal</span>
+                </div>
+                <div className="h-1.5 bg-white/[0.04] rounded-full overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-purple-500 via-violet-400 to-[var(--accent)] rounded-full transition-all duration-1000 ease-out" style={{ width: `${Math.min(pipelineProgress, 100)}%` }} />
+                </div>
+              </div>
+            </div>
+
+            <div className="glass-card px-4 py-3.5 rounded-xl flex items-center gap-3 hover:border-white/10 transition-all duration-200 group animate-slide-up stagger-3 opacity-0" style={{ animationFillMode: 'forwards' }}>
+              <div className="p-2 rounded-lg bg-gradient-to-br from-green-500/15 to-green-500/5">
+                <TrendingUp className="text-green-400 shrink-0" size={16} />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 group-hover:text-gray-400 transition-colors">Avg. Deal Value</p>
+                <p className="text-lg font-display font-bold">$<AnimatedKPIDollar value={projectStats.avgValue} /></p>
+              </div>
+            </div>
+
+            <div className="glass-card px-4 py-3.5 rounded-xl flex items-center gap-3 hover:border-white/10 transition-all duration-200 group animate-slide-up stagger-4 opacity-0" style={{ animationFillMode: 'forwards' }}>
+              <div className="p-2 rounded-lg bg-gradient-to-br from-cyan-500/15 to-cyan-500/5">
+                <Wallet className="text-cyan-400 shrink-0" size={16} />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 group-hover:text-gray-400 transition-colors">Outstanding</p>
+                <p className="text-lg font-display font-bold">$<AnimatedKPIDollar value={stats.totalPipeline - stats.totalCollected} /></p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* === PROJECT METRICS === */}
+      {(metricCategory === "all" || metricCategory === "projects") && (
+        <div className="mb-4">
+          {metricCategory === "all" && <h3 className="text-xs uppercase tracking-wider text-gray-500 mb-3 mt-4 flex items-center gap-1.5"><Briefcase size={12} /> Projects</h3>}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+            {[
+              { icon: Briefcase, gradient: "from-[var(--accent)]/15 to-[var(--accent)]/5", color: "text-[var(--accent)]", label: "Total Projects", value: <AnimatedKPIInt value={projectStats.total} /> },
+              { icon: Zap, gradient: "from-amber-500/15 to-amber-500/5", color: "text-amber-400", label: "Leads", value: <AnimatedKPIInt value={projectStats.byStatus["lead"] || 0} /> },
+              { icon: Activity, gradient: "from-blue-500/15 to-blue-500/5", color: "text-blue-400", label: "In Progress", value: <AnimatedKPIInt value={projectStats.byStatus["in_progress"] || 0} /> },
+              { icon: CheckCircle, gradient: "from-emerald-500/15 to-emerald-500/5", color: "text-emerald-400", label: "Completed", value: <AnimatedKPIInt value={projectStats.byStatus["completed"] || 0} /> },
+              { icon: XCircle, gradient: "from-red-500/15 to-red-500/5", color: "text-red-400", label: "Cancelled", value: <AnimatedKPIInt value={projectStats.byStatus["cancelled"] || 0} /> },
+              { icon: Target, gradient: "from-violet-500/15 to-violet-500/5", color: "text-violet-400", label: "Win Rate", value: <><AnimatedKPI value={projectStats.total > 0 ? ((projectStats.byStatus["completed"] || 0) / projectStats.total) * 100 : 0} suffix="%" /></> },
+            ].map((item, i) => (
+              <div key={i} className="glass-card px-4 py-3.5 rounded-xl flex items-center gap-3 hover:border-white/10 transition-all duration-200 group" >
+                <div className={`p-2 rounded-lg bg-gradient-to-br ${item.gradient}`}>
+                  <item.icon className={`${item.color} shrink-0`} size={16} />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 group-hover:text-gray-400 transition-colors">{item.label}</p>
+                  <p className="text-lg font-display font-bold">{item.value}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* === COMMISSION METRICS === */}
+      {(metricCategory === "all" || metricCategory === "commissions") && (
+        <div className="mb-4">
+          {metricCategory === "all" && <h3 className="text-xs uppercase tracking-wider text-gray-500 mb-3 mt-4 flex items-center gap-1.5"><Percent size={12} /> Commissions</h3>}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+            <div className="glass-card kpi-glow-amber p-6 rounded-2xl group hover:border-amber-500/20 transition-all duration-300">
+              <div className="flex justify-between items-start mb-4">
+                <span className="text-gray-400 text-sm font-medium">Unpaid</span>
+                <div className="icon-glow icon-glow-amber group-hover:scale-110 transition-transform">
+                  <Users className="text-amber-400" size={20} />
+                </div>
+              </div>
+              <div className="text-3xl font-display font-bold tracking-tight bg-gradient-to-r from-amber-300 to-orange-400 bg-clip-text text-transparent">
+                $<AnimatedKPIDollar value={commissionStats.unpaid} />
+              </div>
+              {commissionStats.count > 0 && (
+                <div className="mt-2 text-xs text-gray-500">{commissionStats.count} total</div>
+              )}
+            </div>
+            {[
+              { icon: DollarSign, gradient: "from-emerald-500/15 to-emerald-500/5", color: "text-emerald-400", label: "Total Earned", value: <>$<AnimatedKPIDollar value={commissionStats.total} /></> },
+              { icon: CheckCircle, gradient: "from-green-500/15 to-green-500/5", color: "text-green-400", label: "Paid Out", value: <>$<AnimatedKPIDollar value={commissionStats.paid} /></> },
+              { icon: Percent, gradient: "from-purple-500/15 to-purple-500/5", color: "text-purple-400", label: "Payout Rate", value: <><AnimatedKPI value={commissionStats.total > 0 ? (commissionStats.paid / commissionStats.total) * 100 : 0} suffix="%" /></> },
+              { icon: BarChart2, gradient: "from-cyan-500/15 to-cyan-500/5", color: "text-cyan-400", label: "Avg. per Deal", value: <>$<AnimatedKPIDollar value={commissionStats.count > 0 ? commissionStats.total / commissionStats.count : 0} /></> },
+            ].map((item, i) => (
+              <div key={i} className="glass-card px-4 py-3.5 rounded-xl flex items-center gap-3 hover:border-white/10 transition-all duration-200 group">
+                <div className={`p-2 rounded-lg bg-gradient-to-br ${item.gradient}`}>
+                  <item.icon className={`${item.color} shrink-0`} size={16} />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 group-hover:text-gray-400 transition-colors">{item.label}</p>
+                  <p className="text-lg font-display font-bold">{item.value}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* === PERMIT METRICS === */}
+      {(metricCategory === "all" || metricCategory === "permits") && (
+        <div className="mb-8">
+          {metricCategory === "all" && <h3 className="text-xs uppercase tracking-wider text-gray-500 mb-3 mt-4 flex items-center gap-1.5"><FileText size={12} /> Permits</h3>}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+            <div className="glass-card kpi-glow-blue p-6 rounded-2xl group hover:border-blue-500/20 transition-all duration-300">
+              <div className="flex justify-between items-start mb-4">
+                <span className="text-gray-400 text-sm font-medium">Active Permits</span>
+                <div className="icon-glow icon-glow-blue group-hover:scale-110 transition-transform">
+                  <FileText className="text-cyan-400" size={20} />
+                </div>
+              </div>
+              <div className="text-3xl font-display font-bold tracking-tight text-cyan-300"><AnimatedKPIInt value={stats.activePermits} /></div>
+              {stats.expiringPermits > 0 && (
+                <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-400/80 bg-amber-500/10 rounded-lg px-2.5 py-1.5 border border-amber-500/10">
+                  <AlertCircle size={12} /> {stats.expiringPermits} expiring soon
+                </div>
+              )}
+            </div>
+            {[
+              { icon: AlertCircle, gradient: "from-amber-500/15 to-amber-500/5", color: "text-amber-400", label: "Expiring Soon", value: <AnimatedKPIInt value={stats.expiringPermits} /> },
+              { icon: BarChart2, gradient: "from-purple-500/15 to-purple-500/5", color: "text-purple-400", label: "Total Permits", value: <AnimatedKPIInt value={allPermits.length} /> },
+              { icon: Percent, gradient: "from-emerald-500/15 to-emerald-500/5", color: "text-emerald-400", label: "Approval Rate", value: <><AnimatedKPI value={allPermits.length > 0 ? (allPermits.filter((p: any) => p.status === "approved").length / allPermits.length) * 100 : 0} suffix="%" /></> },
+            ].map((item, i) => (
+              <div key={i} className="glass-card px-4 py-3.5 rounded-xl flex items-center gap-3 hover:border-white/10 transition-all duration-200 group">
+                <div className={`p-2 rounded-lg bg-gradient-to-br ${item.gradient}`}>
+                  <item.icon className={`${item.color} shrink-0`} size={16} />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 group-hover:text-gray-400 transition-colors">{item.label}</p>
+                  <p className="text-lg font-display font-bold">{item.value}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Charts */}
       <DashboardCharts projects={projects} commissions={allCommissions} />

@@ -179,3 +179,53 @@ export async function PUT(req: NextRequest) {
 
   return NextResponse.json({ success: true });
 }
+
+// DELETE: permanently delete a user (superadmin only)
+export async function DELETE(req: NextRequest) {
+  const profile = await getSuperadminProfile(req);
+  if (!profile) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+  }
+
+  const { profileId } = await req.json();
+  if (!profileId) {
+    return NextResponse.json({ error: 'profileId is required' }, { status: 400 });
+  }
+
+  // Don't allow deleting self
+  if (profileId === profile.id) {
+    return NextResponse.json({ error: 'Cannot delete your own account' }, { status: 400 });
+  }
+
+  // Get the auth_user_id before deleting profile
+  const { data: targetProfile } = await supabaseAdmin
+    .from('profiles')
+    .select('auth_user_id')
+    .eq('id', profileId)
+    .single();
+
+  if (!targetProfile) {
+    return NextResponse.json({ error: 'User not found' }, { status: 404 });
+  }
+
+  // Delete the profile (cascades to related data via FK constraints)
+  const { error: profileError } = await supabaseAdmin
+    .from('profiles')
+    .delete()
+    .eq('id', profileId);
+
+  if (profileError) {
+    return NextResponse.json({ error: profileError.message }, { status: 500 });
+  }
+
+  // Delete the auth user
+  if (targetProfile.auth_user_id) {
+    const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(targetProfile.auth_user_id);
+    if (authError) {
+      console.error('Failed to delete auth user:', authError.message);
+      // Profile already deleted, don't fail the request
+    }
+  }
+
+  return NextResponse.json({ success: true });
+}
