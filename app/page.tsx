@@ -1094,13 +1094,13 @@ const ApexDashboard = () => {
                         <td className="px-3 py-4" onClick={(e) => e.stopPropagation()}>
                           <input type="checkbox" checked={bulkSelected.has(p.id)} onChange={() => toggleBulkSelect(p.id)} className="crm-checkbox" />
                         </td>
-                        <td className="px-6 py-4 relative">
+                        <td className="px-6 py-3">
                           {p.created_at && (
-                            <span className="absolute top-1.5 left-2 text-[10px] text-gray-600 inline-flex items-center gap-0.5">
+                            <span className="text-[10px] text-gray-600 inline-flex items-center gap-0.5 mb-0.5">
                               <Clock size={9} /> {relativeTime(p.created_at)}
                             </span>
                           )}
-                          <div className="pt-3">
+                          <div>
                             <div className="flex items-center gap-1.5">
                               <p className="font-medium text-white/90">{p.name}</p>
                               {projectHealthScores.has(p.id) && (() => {
