@@ -3,7 +3,14 @@ import { createBrowserClient } from '@supabase/ssr';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    // Bypass Web Locks API — on normal refresh (Ctrl+R), the browser preserves
+    // orphaned locks from the previous page, blocking the new page's auth
+    // initialization for 5+ seconds and causing AbortErrors.
+    lock: async (_name: string, _acquireTimeout: number, fn: () => Promise<any>) => fn(),
+  },
+});
 
 export const projectService = {
   // 1. Create a New Project & Automate Permit Setup

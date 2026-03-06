@@ -45,13 +45,18 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
   const [loading, setLoading] = useState(true);
 
   async function fetchProfile(userId: string) {
-    const { data } = await supabase
-      .from("profiles")
-      .select("*, organizations!profiles_organization_id_fkey(name, slug)")
-      .eq("auth_user_id", userId)
-      .single();
-    setProfile(data);
-    return data;
+    try {
+      const { data } = await supabase
+        .from("profiles")
+        .select("*, organizations!profiles_organization_id_fkey(name, slug)")
+        .eq("auth_user_id", userId)
+        .single();
+      setProfile(data);
+      return data;
+    } catch {
+      setProfile(null);
+      return null;
+    }
   }
 
   async function refreshProfile() {
@@ -61,15 +66,19 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
   }
 
   useEffect(() => {
+    // Safety timeout — never stay loading longer than 8 seconds
+    const timeout = setTimeout(() => setLoading(false), 8000);
+
     // Get initial session
     supabase.auth.getSession().then(({ data: { session: s } }) => {
       setSession(s);
       if (s?.user?.id) {
-        fetchProfile(s.user.id).finally(() => setLoading(false));
+        fetchProfile(s.user.id).finally(() => { clearTimeout(timeout); setLoading(false); });
       } else {
+        clearTimeout(timeout);
         setLoading(false);
       }
-    }).catch(() => setLoading(false));
+    }).catch(() => { clearTimeout(timeout); setLoading(false); });
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(

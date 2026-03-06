@@ -230,14 +230,18 @@ const ApexDashboard = () => {
     try {
       if (!silent) setLoading(true);
       else setRefreshing(true);
+
+      const timeout = <T,>(p: Promise<T>, ms: number, fallback: T): Promise<T> =>
+        Promise.race([p, new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms))]);
+      const T = 10000; // 10s timeout per query
       const [permitStats, projectList, cStats, settings, commsData, permitsData, profilesData] = await Promise.all([
-        projectService.getPermitStats().catch(() => ({ activePermits: 0, expiringPermits: 0 })),
-        projectService.getProjects().catch(() => []),
-        projectService.getCommissionStats().catch(() => ({ total: 0, paid: 0, unpaid: 0, count: 0 })),
-        projectService.getSettings().catch(() => ({})),
-        projectService.getAllCommissions().catch(() => []),
-        projectService.getAllPermits().catch(() => []),
-        projectService.getProfiles().catch(() => []),
+        timeout(projectService.getPermitStats(), T, { activePermits: 0, expiringPermits: 0 }).catch(() => ({ activePermits: 0, expiringPermits: 0 })),
+        timeout(projectService.getProjects(), T, []).catch(() => []),
+        timeout(projectService.getCommissionStats(), T, { total: 0, paid: 0, unpaid: 0, count: 0 }).catch(() => ({ total: 0, paid: 0, unpaid: 0, count: 0 })),
+        timeout(projectService.getSettings(), T, {}).catch(() => ({})),
+        timeout(projectService.getAllCommissions(), T, []).catch(() => []),
+        timeout(projectService.getAllPermits(), T, []).catch(() => []),
+        timeout(projectService.getProfiles(), T, []).catch(() => []),
       ]);
       // Derive revenue and project stats from projectList to avoid redundant queries
       let totalPipeline = 0, totalCollected = 0, totalValue = 0;
@@ -265,9 +269,17 @@ const ApexDashboard = () => {
     }
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  // Fetch data once auth resolves
+  // Uses profileId (string) as dep instead of session (object) to avoid
+  // reference equality issues on normal refresh
+  useEffect(() => {
+    if (authLoading) return;
+    if (!session) { setLoading(false); return; }
+    fetchData();
+  }, [fetchData, authLoading, session]);
 
   useEffect(() => {
+    if (authLoading || !session) return;
     const channel = supabase
       .channel("dashboard-changes")
       .on("postgres_changes", { event: "*", schema: "public", table: "projects" }, () => fetchData(true))
@@ -276,7 +288,7 @@ const ApexDashboard = () => {
       .on("postgres_changes", { event: "*", schema: "public", table: "settings" }, () => fetchData(true))
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [fetchData]);
+  }, [fetchData, authLoading, session]);
 
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
