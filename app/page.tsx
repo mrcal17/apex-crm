@@ -33,6 +33,7 @@ import {
   Wallet,
   BarChart2,
   Activity,
+  AlertTriangle,
 } from "lucide-react";
 import { supabase, projectService } from "../lib/projectService";
 import { useCountUp } from "./hooks/useCountUp";
@@ -48,6 +49,7 @@ import MobileNav from "./components/MobileNav";
 import Sidebar from "./components/Sidebar";
 import { useAuth } from "./components/AuthProvider";
 import { applyFilters, type FilterState } from "./components/FilterBar";
+import { computeHealthScore, HEALTH_COLORS, type HealthResult } from "../lib/healthScore";
 
 const TabSpinner = () => (
   <div className="flex items-center justify-center py-20">
@@ -72,6 +74,9 @@ const RevenueForecast = dynamic(() => import("./components/RevenueForecast"), { 
 const PermitCalendar = dynamic(() => import("./components/PermitCalendar"), { ssr: false, loading: () => null });
 const ActivityLog = dynamic(() => import("./components/ActivityLog"), { ssr: false, loading: TabSpinner });
 const ClientContacts = dynamic(() => import("./components/ClientContacts"), { ssr: false, loading: TabSpinner });
+const ActionQueue = dynamic(() => import("./components/ActionQueue"), { ssr: false, loading: () => null });
+const TasksPanel = dynamic(() => import("./components/TasksPanel"), { ssr: false, loading: TabSpinner });
+const CloseReasonModal = dynamic(() => import("./components/CloseReasonModal"), { ssr: false, loading: () => null });
 const AdminApprovalPanel = dynamic(() => import("./components/AdminApprovalPanel"), { ssr: false, loading: () => null });
 const AdminControlsPanel = dynamic(() => import("./components/AdminControlsPanel"), { ssr: false, loading: TabSpinner });
 const PipelineMetrics = dynamic(() => import("./components/PipelineMetrics"), { ssr: false, loading: TabSpinner });
@@ -166,6 +171,8 @@ const ApexDashboard = () => {
   const [advancedFilters, setAdvancedFilters] = useState<FilterState>({ conditions: [], logic: "and" });
   const [allCommissions, setAllCommissions] = useState<any[]>([]);
   const [allPermits, setAllPermits] = useState<any[]>([]);
+  const [allTasks, setAllTasks] = useState<any[]>([]);
+  const [closeReasonProject, setCloseReasonProject] = useState<{ id: string; name: string; outcome: "completed" | "cancelled" } | null>(null);
   const [teamProfiles, setTeamProfiles] = useState<{ id: string; full_name: string }[]>([]);
   const projectFilterFields = useMemo(() => [
     { key: "status", label: "Status", type: "select" as const, options: [
@@ -320,6 +327,57 @@ const ApexDashboard = () => {
     return counts;
   }, [projects]);
 
+  // Health scores for all active projects
+  const projectHealthScores = useMemo(() => {
+    const map = new Map<string, HealthResult>();
+    for (const p of projects) {
+      if (p.status === "completed" || p.status === "cancelled") continue;
+      map.set(p.id, computeHealthScore(p, allPermits, allCommissions));
+    }
+    return map;
+  }, [projects, allPermits, allCommissions]);
+
+  // Stall + health distribution metrics
+  const derivedMetrics = useMemo(() => {
+    const now = Date.now();
+    const DAY = 86400000;
+    // Stalled projects (age > 2x stage average and > 7 days)
+    const stageTimes: Record<string, number[]> = {};
+    for (const p of projects) {
+      if (!p.created_at || p.status === "completed" || p.status === "cancelled") continue;
+      const age = (now - new Date(p.created_at).getTime()) / DAY;
+      if (!stageTimes[p.status]) stageTimes[p.status] = [];
+      stageTimes[p.status].push(age);
+    }
+    const stageAvg: Record<string, number> = {};
+    for (const [s, times] of Object.entries(stageTimes)) {
+      stageAvg[s] = times.reduce((a, b) => a + b, 0) / times.length;
+    }
+    let stalledCount = 0;
+    for (const p of projects) {
+      if (!p.created_at || p.status === "completed" || p.status === "cancelled") continue;
+      const age = (now - new Date(p.created_at).getTime()) / DAY;
+      if (age > (stageAvg[p.status] || 14) * 2 && age > 7) stalledCount++;
+    }
+
+    // Health distribution
+    let greenCt = 0, yellowCt = 0, redCt = 0;
+    for (const h of projectHealthScores.values()) {
+      if (h.level === "green") greenCt++;
+      else if (h.level === "yellow") yellowCt++;
+      else redCt++;
+    }
+
+    // Overdue tasks
+    const overdueTasks = allTasks.filter((t: any) => !t.completed && t.due_date && new Date(t.due_date).getTime() < now).length;
+
+    // Avg stage durations
+    const avgLeadDays = stageAvg["lead"] || 0;
+    const avgProgressDays = stageAvg["in_progress"] || 0;
+
+    return { stalledCount, greenCt, yellowCt, redCt, overdueTasks, avgLeadDays, avgProgressDays };
+  }, [projects, projectHealthScores, allTasks]);
+
   async function handleQuickComplete(projectId: string) {
     if (_rl(role) < 2) {
       if (!window.confirm("Request to mark this project as completed? A manager or admin must approve.")) return;
@@ -333,12 +391,14 @@ const ApexDashboard = () => {
     }
     if (!window.confirm("Mark this project as completed? This will trigger commission calculation.")) return;
     try {
+      const pName = projects.find((p) => p.id === projectId)?.name || "Project";
       await projectService.completeProject(projectId);
       setRecentlyCompleted((prev) => new Set(prev).add(projectId));
       setTimeout(() => setRecentlyCompleted((prev) => { const n = new Set(prev); n.delete(projectId); return n; }), 3000);
       fireConfetti();
       toast("Project completed! Commission generated.", "success");
       fetchData(true);
+      setCloseReasonProject({ id: projectId, name: pName, outcome: "completed" });
     } catch (err) {
       toast("Failed to complete project.", "error");
     }
@@ -363,6 +423,10 @@ const ApexDashboard = () => {
       await projectService.updateProject(projectId, { status: newStatus });
       toast(`Status changed to ${formatStatus(newStatus)}.`, "success");
       fetchData(true);
+      if (newStatus === "cancelled") {
+        const pName = projects.find((p) => p.id === projectId)?.name || "Project";
+        setCloseReasonProject({ id: projectId, name: pName, outcome: "cancelled" });
+      }
     } catch (err) {
       toast("Failed to update status.", "error");
     }
@@ -659,6 +723,18 @@ const ApexDashboard = () => {
           </div>
         </div>
       ) : (<>
+      {/* Smart Action Queue */}
+      <div className="mt-6">
+        <ActionQueue
+          projects={projects}
+          permits={allPermits}
+          commissions={allCommissions}
+          tasks={allTasks}
+          onSelectProject={(id) => { setSelectedProjectId(id); setDetailProjectId(id); }}
+          onNavigateTab={(tab) => setActiveTab(tab as TabKey)}
+        />
+      </div>
+
       {/* Metric Category Filter */}
       <div className="flex gap-1 overflow-x-auto pb-1 mt-6 mb-4">
         {([
@@ -744,14 +820,33 @@ const ApexDashboard = () => {
       {(metricCategory === "all" || metricCategory === "projects") && (
         <div className="mb-4">
           {metricCategory === "all" && <h3 className="text-xs uppercase tracking-wider text-gray-500 mb-3 mt-4 flex items-center gap-1.5"><Briefcase size={12} /> Projects</h3>}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
             {[
               { icon: Briefcase, gradient: "from-[var(--accent)]/15 to-[var(--accent)]/5", color: "text-[var(--accent)]", label: "Total Projects", value: <AnimatedKPIInt value={projectStats.total} /> },
               { icon: Zap, gradient: "from-amber-500/15 to-amber-500/5", color: "text-amber-400", label: "Leads", value: <AnimatedKPIInt value={projectStats.byStatus["lead"] || 0} /> },
               { icon: Activity, gradient: "from-blue-500/15 to-blue-500/5", color: "text-blue-400", label: "In Progress", value: <AnimatedKPIInt value={projectStats.byStatus["in_progress"] || 0} /> },
               { icon: CheckCircle, gradient: "from-emerald-500/15 to-emerald-500/5", color: "text-emerald-400", label: "Completed", value: <AnimatedKPIInt value={projectStats.byStatus["completed"] || 0} /> },
               { icon: XCircle, gradient: "from-red-500/15 to-red-500/5", color: "text-red-400", label: "Cancelled", value: <AnimatedKPIInt value={projectStats.byStatus["cancelled"] || 0} /> },
+            ].map((item, i) => (
+              <div key={i} className="glass-card px-4 py-3.5 rounded-xl flex items-center gap-3 hover:border-white/10 transition-all duration-200 group" >
+                <div className={`p-2 rounded-lg bg-gradient-to-br ${item.gradient}`}>
+                  <item.icon className={`${item.color} shrink-0`} size={16} />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 group-hover:text-gray-400 transition-colors">{item.label}</p>
+                  <p className="text-lg font-display font-bold">{item.value}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          {/* Velocity, Stall, Health row */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mt-3">
+            {[
               { icon: Target, gradient: "from-violet-500/15 to-violet-500/5", color: "text-violet-400", label: "Win Rate", value: <><AnimatedKPI value={projectStats.total > 0 ? ((projectStats.byStatus["completed"] || 0) / projectStats.total) * 100 : 0} suffix="%" /></> },
+              { icon: AlertTriangle, gradient: "from-orange-500/15 to-orange-500/5", color: "text-orange-400", label: "Stalled Deals", value: <AnimatedKPIInt value={derivedMetrics.stalledCount} /> },
+              { icon: Clock, gradient: "from-sky-500/15 to-sky-500/5", color: "text-sky-400", label: "Avg Lead Time", value: <><AnimatedKPI value={derivedMetrics.avgLeadDays} suffix="d" /></> },
+              { icon: Clock, gradient: "from-indigo-500/15 to-indigo-500/5", color: "text-indigo-400", label: "Avg Build Time", value: <><AnimatedKPI value={derivedMetrics.avgProgressDays} suffix="d" /></> },
+              { icon: Activity, gradient: "from-pink-500/15 to-pink-500/5", color: "text-pink-400", label: "Health", value: <span className="flex items-center gap-1.5 text-sm"><span className="w-2 h-2 rounded-full bg-emerald-400" />{derivedMetrics.greenCt} <span className="w-2 h-2 rounded-full bg-amber-400" />{derivedMetrics.yellowCt} <span className="w-2 h-2 rounded-full bg-red-400" />{derivedMetrics.redCt}</span> },
             ].map((item, i) => (
               <div key={i} className="glass-card px-4 py-3.5 rounded-xl flex items-center gap-3 hover:border-white/10 transition-all duration-200 group" >
                 <div className={`p-2 rounded-lg bg-gradient-to-br ${item.gradient}`}>
@@ -844,8 +939,26 @@ const ApexDashboard = () => {
         </div>
       )}
 
+      {/* Overdue tasks alert */}
+      {derivedMetrics.overdueTasks > 0 && (
+        <div className="flex items-center gap-3 glass-card px-4 py-3 rounded-xl border-red-500/20 mb-4">
+          <div className="p-2 rounded-lg bg-red-500/10">
+            <AlertTriangle className="text-red-400" size={16} />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm text-white/90 font-medium">{derivedMetrics.overdueTasks} overdue task{derivedMetrics.overdueTasks !== 1 ? "s" : ""}</p>
+            <p className="text-xs text-gray-500">Tasks past their due date need attention</p>
+          </div>
+        </div>
+      )}
+
       {/* Charts */}
       <DashboardCharts projects={projects} commissions={allCommissions} />
+
+      {/* Tasks & Reminders */}
+      <div className="mt-6">
+        <TasksPanel projects={projects} onTasksLoaded={setAllTasks} />
+      </div>
 
       {/* Bulk Actions Bar */}
       {bulkSelected.size > 0 && (
@@ -988,7 +1101,14 @@ const ApexDashboard = () => {
                             </span>
                           )}
                           <div>
-                            <p className="font-medium text-white/90">{p.name}</p>
+                            <div className="flex items-center gap-1.5">
+                              <p className="font-medium text-white/90">{p.name}</p>
+                              {projectHealthScores.has(p.id) && (() => {
+                                const h = projectHealthScores.get(p.id)!;
+                                const c = HEALTH_COLORS[h.level];
+                                return <span className={`w-2 h-2 rounded-full ${c.dot} shrink-0`} title={`${h.label} (${h.score}/100)${h.factors.length > 0 ? ": " + h.factors.join(", ") : ""}`} />;
+                              })()}
+                            </div>
                             <p className="text-xs text-gray-500">
                               {p.client_name}{p.profiles?.full_name ? ` \u2022 ${p.profiles.full_name}` : ""}
                             </p>
@@ -1156,6 +1276,15 @@ const ApexDashboard = () => {
       {/* Modals */}
       <NewProjectModal isOpen={newModalOpen} onClose={() => setNewModalOpen(false)} onCreated={() => fetchData(true)} role={role} profileId={profileId} />
       <EditProjectModal isOpen={!!editProject} project={editProject} onClose={() => setEditProject(null)} onUpdated={() => fetchData(true)} role={role} />
+      {closeReasonProject && (
+        <CloseReasonModal
+          projectId={closeReasonProject.id}
+          projectName={closeReasonProject.name}
+          outcome={closeReasonProject.outcome}
+          onClose={() => setCloseReasonProject(null)}
+          onSaved={() => fetchData(true)}
+        />
+      )}
       </div>{/* end flex-1 main content */}
     </div>
   );

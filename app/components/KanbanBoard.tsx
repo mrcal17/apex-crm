@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { GripVertical, DollarSign, User, Clock } from "lucide-react";
+import { GripVertical, DollarSign, User, Clock, AlertTriangle } from "lucide-react";
 import { projectService } from "../../lib/projectService";
 import { relativeTime } from "../hooks/useRelativeTime";
-
+import { computeHealthScore, HEALTH_COLORS } from "../../lib/healthScore";
 import { _rl, type Role } from "../../lib/roles";
 
 interface KanbanBoardProps {
@@ -31,6 +31,30 @@ export default function KanbanBoard({ projects, onRefresh, onSelectProject, role
       if (map[p.status]) map[p.status].push(p);
     }
     return map;
+  }, [projects]);
+
+  // Stall detection
+  const stalledIds = useMemo(() => {
+    const now = Date.now();
+    const DAY = 86400000;
+    const stageTimes: Record<string, number[]> = {};
+    for (const p of projects) {
+      if (!p.created_at || p.status === "completed" || p.status === "cancelled") continue;
+      const age = (now - new Date(p.created_at).getTime()) / DAY;
+      if (!stageTimes[p.status]) stageTimes[p.status] = [];
+      stageTimes[p.status].push(age);
+    }
+    const stageAvg: Record<string, number> = {};
+    for (const [s, times] of Object.entries(stageTimes)) {
+      stageAvg[s] = times.reduce((a, b) => a + b, 0) / times.length;
+    }
+    const stalled = new Set<string>();
+    for (const p of projects) {
+      if (!p.created_at || p.status === "completed" || p.status === "cancelled") continue;
+      const age = (now - new Date(p.created_at).getTime()) / DAY;
+      if (age > (stageAvg[p.status] || 14) * 2 && age > 7) stalled.add(p.id);
+    }
+    return stalled;
   }, [projects]);
 
   function handleDragStart(e: React.DragEvent, projectId: string) {
@@ -107,7 +131,14 @@ export default function KanbanBoard({ projects, onRefresh, onSelectProject, role
                 <div className="flex items-start gap-2">
                   <GripVertical size={14} className="text-gray-700 group-hover:text-gray-500 mt-0.5 shrink-0 transition-colors" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-white/90 truncate">{p.name}</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-xs font-medium text-white/90 truncate">{p.name}</p>
+                      {p.status !== "completed" && p.status !== "cancelled" && (() => {
+                        const h = computeHealthScore(p, [], []);
+                        const c = HEALTH_COLORS[h.level];
+                        return <span className={`w-1.5 h-1.5 rounded-full ${c.dot} shrink-0`} title={h.label} />;
+                      })()}
+                    </div>
                     {p.client_name && (
                       <p className="text-[10px] text-gray-500 truncate mt-0.5">{p.client_name}</p>
                     )}
@@ -121,11 +152,18 @@ export default function KanbanBoard({ projects, onRefresh, onSelectProject, role
                         </span>
                       )}
                     </div>
-                    {p.created_at && (
-                      <p className="text-[9px] text-gray-600 mt-1 flex items-center gap-0.5">
-                        <Clock size={8} /> {relativeTime(p.created_at)}
-                      </p>
-                    )}
+                    <div className="flex items-center gap-2 mt-1">
+                      {p.created_at && (
+                        <p className="text-[9px] text-gray-600 flex items-center gap-0.5">
+                          <Clock size={8} /> {relativeTime(p.created_at)}
+                        </p>
+                      )}
+                      {stalledIds.has(p.id) && (
+                        <span className="text-[9px] text-orange-400 bg-orange-500/10 border border-orange-500/20 rounded-full px-1.5 py-0.5 flex items-center gap-0.5 font-medium">
+                          <AlertTriangle size={8} /> Stalled
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

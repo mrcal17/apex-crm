@@ -140,6 +140,8 @@ export const projectService = {
     pto_granted_at: string | null;
     utility_name: string;
     utility_checklist: Array<{ name: string; required: boolean; completed: boolean }>;
+    close_reason: string | null;
+    close_notes: string | null;
   }>) {
     const { data, error } = await supabase
       .from('projects')
