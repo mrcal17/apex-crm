@@ -33,13 +33,38 @@ export async function POST(req: NextRequest) {
 
     const forwarded = req.headers.get('x-forwarded-for');
     const ip = forwarded ? forwarded.split(',')[0].trim() : req.headers.get('x-real-ip') || 'Unknown';
+    const device = deviceInfo || 'Unknown';
+
+    // Check for existing session with same user, IP, and device
+    const { data: existing } = await supabaseAdmin
+      .from('user_sessions')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('ip_address', ip)
+      .eq('device_info', device)
+      .limit(1)
+      .maybeSingle();
+
+    if (existing) {
+      // Update existing session instead of creating a duplicate
+      const { error } = await supabaseAdmin
+        .from('user_sessions')
+        .update({ session_token: sessionToken, last_active_at: new Date().toISOString() })
+        .eq('id', existing.id);
+
+      if (error) {
+        console.error('Failed to update session:', error);
+        return NextResponse.json({ error: 'Failed to update session' }, { status: 500 });
+      }
+      return NextResponse.json({ id: existing.id });
+    }
 
     const { data, error } = await supabaseAdmin
       .from('user_sessions')
       .insert({
         user_id: user.id,
         session_token: sessionToken,
-        device_info: deviceInfo || 'Unknown',
+        device_info: device,
         ip_address: ip,
       })
       .select('id')
