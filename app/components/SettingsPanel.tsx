@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Settings, Save, Loader2, Building2, Copy, Check } from "lucide-react";
+import { Settings, Save, Loader2, Building2, Copy, Check, Plus, Trash2 } from "lucide-react";
 import { projectService, supabase } from "../../lib/projectService";
 import { useAuth } from "./AuthProvider";
 import { _rl } from "../../lib/roles";
@@ -28,12 +28,15 @@ const DEFAULT_VALUES: Record<string, string> = {
   currency_symbol: "$",
 };
 
+type CommissionTier = { upTo: number | null; rate: number };
+
 export default function SettingsPanel({ onSettingsSaved }: SettingsPanelProps) {
   const { organizationId, organizationName, role, refreshProfile } = useAuth();
   const [form, setForm] = useState<Record<string, string>>({ ...DEFAULT_VALUES });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [tiers, setTiers] = useState<CommissionTier[]>([]);
 
   // Org settings
   const [orgName, setOrgName] = useState(organizationName || "");
@@ -46,6 +49,9 @@ export default function SettingsPanel({ onSettingsSaved }: SettingsPanelProps) {
       try {
         const settings = await projectService.getSettings();
         setForm((prev) => ({ ...prev, ...settings }));
+        if (settings.commission_tiers) {
+          try { setTiers(JSON.parse(settings.commission_tiers)); } catch { setTiers([]); }
+        }
 
         // Fetch org details
         if (organizationId) {
@@ -74,6 +80,9 @@ export default function SettingsPanel({ onSettingsSaved }: SettingsPanelProps) {
       const promises = Object.entries(form).map(([key, value]) =>
         projectService.upsertSetting(key, value)
       );
+      if (tiers.length > 0) {
+        promises.push(projectService.upsertSetting("commission_tiers", JSON.stringify(tiers)));
+      }
       await Promise.all(promises);
       setSaved(true);
       onSettingsSaved?.(form);
@@ -244,6 +253,67 @@ export default function SettingsPanel({ onSettingsSaved }: SettingsPanelProps) {
               className="input-field w-full rounded-xl"
             />
             <p className="text-xs text-gray-600 mt-1">Applied as the default when adding new sales reps.</p>
+          </div>
+
+          {/* Tiered Commission Rates */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-300">Tiered Commission Rates</label>
+                <p className="text-xs text-gray-600 mt-0.5">If configured, tiers override individual rep rates on project completion.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTiers((prev) => [...prev, { upTo: null, rate: 0.10 }])}
+                className="flex items-center gap-1 text-xs text-[var(--accent)] hover:text-[var(--accent)]/80 bg-[var(--accent)]/10 border border-[var(--accent)]/20 rounded-lg px-2.5 py-1.5 transition-colors"
+              >
+                <Plus size={12} /> Add Tier
+              </button>
+            </div>
+            {tiers.length === 0 ? (
+              <p className="text-xs text-gray-600 italic">No tiers set — flat per-rep rates will be used.</p>
+            ) : (
+              <div className="space-y-2">
+                {tiers.map((tier, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <div className="flex-1 flex items-center gap-2 glass-card rounded-xl px-3 py-2">
+                      <span className="text-xs text-gray-500 shrink-0">Up to $</span>
+                      <input
+                        type="number"
+                        placeholder="∞ (top tier)"
+                        value={tier.upTo ?? ""}
+                        onChange={(e) => {
+                          const val = e.target.value === "" ? null : Number(e.target.value);
+                          setTiers((prev) => prev.map((t, j) => j === i ? { ...t, upTo: val } : t));
+                        }}
+                        className="w-28 bg-transparent text-sm text-white focus:outline-none placeholder-gray-600"
+                        min="0"
+                      />
+                      <span className="text-xs text-gray-500 shrink-0 ml-auto">Rate:</span>
+                      <input
+                        type="number"
+                        value={(tier.rate * 100).toFixed(1)}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value) / 100;
+                          setTiers((prev) => prev.map((t, j) => j === i ? { ...t, rate: isNaN(val) ? 0 : val } : t));
+                        }}
+                        className="w-16 bg-transparent text-sm text-white text-right focus:outline-none"
+                        min="0" max="100" step="0.5"
+                      />
+                      <span className="text-xs text-gray-500">%</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setTiers((prev) => prev.filter((_, j) => j !== i))}
+                      className="p-1.5 rounded-lg text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+                <p className="text-[11px] text-gray-600">The matching tier for a deal's total value determines its commission rate (threshold-based, not bracketed).</p>
+              </div>
+            )}
           </div>
 
           {/* Permit Expiry Warning */}

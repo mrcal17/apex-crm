@@ -48,6 +48,14 @@ export default function ClientContacts({ role = "sales_rep" }: ClientContactsPro
 
   useEffect(() => { loadContacts(); }, []);
 
+  useEffect(() => {
+    const channel = supabase
+      .channel("contacts-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "client_contacts" }, () => loadContacts())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
   const filtered = useMemo(() => {
     if (!searchQuery) return contacts;
     const q = searchQuery.toLowerCase();

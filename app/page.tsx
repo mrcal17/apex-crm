@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import dynamic from "next/dynamic";
 import {
   LayoutDashboard,
   FileText,
@@ -32,34 +33,42 @@ import { relativeTime } from "./hooks/useRelativeTime";
 import { fireConfetti } from "./hooks/useConfetti";
 import NewProjectModal from "./components/NewProjectModal";
 import EditProjectModal from "./components/EditProjectModal";
-import TeamPanel from "./components/TeamPanel";
-import Leaderboard from "./components/Leaderboard";
 import { useToast } from "./components/Toast";
-import GoogleEarthTab from "./components/GoogleEarthTab";
-import SolarAnalysisPanel from "./components/SolarAnalysisPanel";
-import SettingsPanel from "./components/SettingsPanel";
-import ActiveSessions from "./components/ActiveSessions";
-import CommissionsPanel from "./components/CommissionsPanel";
-import PermitsPanel from "./components/PermitsPanel";
-import LeadPanel from "./components/LeadPanel";
 import GlobalSearch from "./components/GlobalSearch";
-import ProjectDetailPanel from "./components/ProjectDetailPanel";
-import DashboardCharts from "./components/DashboardCharts";
-import KanbanBoard from "./components/KanbanBoard";
 import NotificationCenter from "./components/NotificationCenter";
-import SalesPerformance from "./components/SalesPerformance";
-import RevenueForecast from "./components/RevenueForecast";
-import PermitCalendar from "./components/PermitCalendar";
-import ActivityLog from "./components/ActivityLog";
-import ClientContacts from "./components/ClientContacts";
 import { Columns3, BarChart3, Calendar, BookUser, LogOut, ChevronDown as ChevronDownIcon } from "lucide-react";
 import MobileNav from "./components/MobileNav";
 import Sidebar from "./components/Sidebar";
 import { useAuth } from "./components/AuthProvider";
-import AdminApprovalPanel from "./components/AdminApprovalPanel";
-import AdminControlsPanel from "./components/AdminControlsPanel";
-import PipelineMetrics from "./components/PipelineMetrics";
-import FilterBar, { applyFilters, type FilterState } from "./components/FilterBar";
+import { applyFilters, type FilterState } from "./components/FilterBar";
+
+const TabSpinner = () => (
+  <div className="flex items-center justify-center py-20">
+    <div className="w-5 h-5 border-2 border-[var(--accent)]/20 border-t-[var(--accent)] rounded-full animate-spin" />
+  </div>
+);
+
+const TeamPanel = dynamic(() => import("./components/TeamPanel"), { ssr: false, loading: TabSpinner });
+const Leaderboard = dynamic(() => import("./components/Leaderboard"), { ssr: false, loading: TabSpinner });
+const GoogleEarthTab = dynamic(() => import("./components/GoogleEarthTab"), { ssr: false, loading: TabSpinner });
+const SolarAnalysisPanel = dynamic(() => import("./components/SolarAnalysisPanel"), { ssr: false, loading: TabSpinner });
+const SettingsPanel = dynamic(() => import("./components/SettingsPanel"), { ssr: false, loading: TabSpinner });
+const ActiveSessions = dynamic(() => import("./components/ActiveSessions"), { ssr: false, loading: TabSpinner });
+const CommissionsPanel = dynamic(() => import("./components/CommissionsPanel"), { ssr: false, loading: TabSpinner });
+const PermitsPanel = dynamic(() => import("./components/PermitsPanel"), { ssr: false, loading: TabSpinner });
+const LeadPanel = dynamic(() => import("./components/LeadPanel"), { ssr: false, loading: TabSpinner });
+const ProjectDetailPanel = dynamic(() => import("./components/ProjectDetailPanel"), { ssr: false, loading: () => null });
+const DashboardCharts = dynamic(() => import("./components/DashboardCharts"), { ssr: false, loading: TabSpinner });
+const KanbanBoard = dynamic(() => import("./components/KanbanBoard"), { ssr: false, loading: TabSpinner });
+const SalesPerformance = dynamic(() => import("./components/SalesPerformance"), { ssr: false, loading: TabSpinner });
+const RevenueForecast = dynamic(() => import("./components/RevenueForecast"), { ssr: false, loading: TabSpinner });
+const PermitCalendar = dynamic(() => import("./components/PermitCalendar"), { ssr: false, loading: () => null });
+const ActivityLog = dynamic(() => import("./components/ActivityLog"), { ssr: false, loading: TabSpinner });
+const ClientContacts = dynamic(() => import("./components/ClientContacts"), { ssr: false, loading: TabSpinner });
+const AdminApprovalPanel = dynamic(() => import("./components/AdminApprovalPanel"), { ssr: false, loading: () => null });
+const AdminControlsPanel = dynamic(() => import("./components/AdminControlsPanel"), { ssr: false, loading: TabSpinner });
+const PipelineMetrics = dynamic(() => import("./components/PipelineMetrics"), { ssr: false, loading: TabSpinner });
+const FilterBar = dynamic(() => import("./components/FilterBar"), { ssr: false, loading: () => null });
 import { TAB_ACCESS, PERMISSIONS, _v, _rl, type Role, type TabKey as RoleTabKey } from "../lib/roles";
 import { formatStatus, statusClasses } from "../lib/statusConfig";
 

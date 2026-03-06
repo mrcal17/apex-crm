@@ -3,7 +3,25 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { UserPlus, X, User, Search, ChevronDown, ArrowRightCircle } from "lucide-react";
 import { leadService, type Lead } from "../../lib/leadService";
-import { projectService } from "../../lib/projectService";
+import { projectService, supabase } from "../../lib/projectService";
+
+function scoreLead(lead: Lead): { score: number; label: "Hot" | "Warm" | "Cold"; color: string; bg: string } {
+  let score = 0;
+  if (lead.email) score += 25;
+  if (lead.phone) score += 20;
+  if (lead.street && lead.city && lead.state && lead.zip) score += 25;
+  else if (lead.street || lead.city) score += 10;
+  if (lead.created_at) {
+    const days = (Date.now() - new Date(lead.created_at).getTime()) / 86400000;
+    if (days <= 7) score += 30;
+    else if (days <= 30) score += 20;
+    else if (days <= 90) score += 10;
+  }
+  const label = score >= 60 ? "Hot" : score >= 30 ? "Warm" : "Cold";
+  const color = score >= 60 ? "text-red-400" : score >= 30 ? "text-amber-400" : "text-blue-400";
+  const bg = score >= 60 ? "bg-red-500/10 border-red-500/20" : score >= 30 ? "bg-amber-500/10 border-amber-500/20" : "bg-blue-500/10 border-blue-500/20";
+  return { score, label, color, bg };
+}
 import type { Role } from "../../lib/roles";
 
 interface LeadPanelProps {
@@ -25,6 +43,16 @@ export default function LeadPanel({ onLeadSelect, onConverted, role = "sales_rep
 
   useEffect(() => {
     leadService.getActiveLeads().then(setLeads).catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("leads-panel-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "leads" }, () => {
+        leadService.getActiveLeads().then(setLeads).catch(console.error);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   useEffect(() => {
@@ -183,22 +211,28 @@ export default function LeadPanel({ onLeadSelect, onConverted, role = "sales_rep
                     {leads.length === 0 ? "No leads yet" : "No matches"}
                   </div>
                 ) : (
-                  filteredLeads.map((l) => (
-                    <div
-                      key={l.id}
-                      onClick={() => selectLead(l.id)}
-                      className={`px-3 py-1.5 cursor-pointer transition-colors border-b border-white/[0.03] last:border-b-0 ${
-                        selectedId === l.id
-                          ? "bg-violet-500/15 text-white"
-                          : "hover:bg-white/[0.05] text-white/80"
-                      }`}
-                    >
-                      <p className="text-[10px] font-medium truncate">{l.name}</p>
-                      <p className="text-[9px] text-gray-600 truncate">
-                        {l.email || l.phone || buildAddress(l) || "No contact info"}
-                      </p>
-                    </div>
-                  ))
+                  filteredLeads.map((l) => {
+                    const { label, color, bg } = scoreLead(l);
+                    return (
+                      <div
+                        key={l.id}
+                        onClick={() => selectLead(l.id)}
+                        className={`px-3 py-1.5 cursor-pointer transition-colors border-b border-white/[0.03] last:border-b-0 ${
+                          selectedId === l.id
+                            ? "bg-violet-500/15 text-white"
+                            : "hover:bg-white/[0.05] text-white/80"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-1">
+                          <p className="text-[10px] font-medium truncate">{l.name}</p>
+                          <span className={`shrink-0 text-[8px] font-bold px-1.5 py-0.5 rounded-full border ${color} ${bg}`}>{label}</span>
+                        </div>
+                        <p className="text-[9px] text-gray-600 truncate">
+                          {l.email || l.phone || buildAddress(l) || "No contact info"}
+                        </p>
+                      </div>
+                    );
+                  })
                 )}
               </div>
             )}
@@ -235,7 +269,11 @@ export default function LeadPanel({ onLeadSelect, onConverted, role = "sales_rep
       {selectedLead && !adding && (
         <div className="px-2.5 py-2 border-t border-white/[0.06]">
           <div className="space-y-1.5">
-            <p className="text-[11px] font-semibold text-white truncate">{selectedLead.name}</p>
+            <div className="flex items-center justify-between gap-1">
+              <p className="text-[11px] font-semibold text-white truncate">{selectedLead.name}</p>
+              {(() => { const { label, color, bg, score } = scoreLead(selectedLead); return (
+                <span className={`shrink-0 text-[8px] font-bold px-1.5 py-0.5 rounded-full border ${color} ${bg}`} title={`Lead score: ${score}/100`}>{label}</span>
+              ); })()}</div>
             {selectedLead.street && (
               <div>
                 <p className="text-[9px] uppercase text-gray-600 font-medium leading-none mb-0.5">Address</p>

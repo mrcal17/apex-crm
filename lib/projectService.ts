@@ -62,8 +62,30 @@ export const projectService = {
       .eq('id', project.sales_rep_id)
       .single();
 
-    const rate = profile?.commission_rate || 0.10;
-    const amount = project.contract_value * rate;
+    const flatRate = profile?.commission_rate || 0.10;
+
+    // Check for tiered commission rates in settings
+    const { data: tiersSetting } = await supabase
+      .from('settings')
+      .select('value')
+      .eq('key', 'commission_tiers')
+      .maybeSingle();
+
+    let amount: number;
+    if (tiersSetting?.value) {
+      try {
+        type Tier = { upTo: number | null; rate: number };
+        const tiers: Tier[] = JSON.parse(tiersSetting.value);
+        const sorted = tiers.slice().sort((a, b) => (a.upTo ?? Infinity) - (b.upTo ?? Infinity));
+        const contractValue = Number(project.contract_value);
+        const match = sorted.find((t) => t.upTo === null || contractValue <= t.upTo);
+        amount = contractValue * (match?.rate ?? flatRate);
+      } catch {
+        amount = project.contract_value * flatRate;
+      }
+    } else {
+      amount = project.contract_value * flatRate;
+    }
 
     // Create the Commission Entry
     await supabase.from('commissions').insert([{
