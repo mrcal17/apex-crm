@@ -956,7 +956,7 @@ const ApexDashboard = () => {
       <DashboardCharts projects={projects} commissions={allCommissions} />
 
       {/* Tasks & Reminders */}
-      <div className="mt-6">
+      <div className="mt-10">
         <TasksPanel projects={projects} onTasksLoaded={setAllTasks} />
       </div>
 
@@ -1094,8 +1094,8 @@ const ApexDashboard = () => {
                         <td className="px-3 py-4" onClick={(e) => e.stopPropagation()}>
                           <input type="checkbox" checked={bulkSelected.has(p.id)} onChange={() => toggleBulkSelect(p.id)} className="crm-checkbox" />
                         </td>
-                        <td className="px-6 py-4">
-                          <div>
+                        <td className="px-6 py-4 align-middle">
+                          <div className="relative">
                             <div className="flex items-center gap-1.5">
                               <p className="font-medium text-white/90">{p.name}</p>
                               {projectHealthScores.has(p.id) && (() => {
@@ -1106,8 +1106,8 @@ const ApexDashboard = () => {
                             </div>
                             <p className="text-xs text-gray-500">
                               {p.client_name}{p.profiles?.full_name ? ` \u2022 ${p.profiles.full_name}` : ""}
-                              {p.created_at && <span className="ml-1.5 text-gray-600 inline-flex items-center gap-0.5"><Clock size={9} /> {relativeTime(p.created_at)}</span>}
                             </p>
+                            {p.created_at && <span className="absolute top-0 right-0 text-[9px] text-gray-600 inline-flex items-center gap-0.5"><Clock size={8} /> {relativeTime(p.created_at)}</span>}
                           </div>
                         </td>
                         <td className="px-6 py-4">
