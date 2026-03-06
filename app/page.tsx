@@ -1060,8 +1060,8 @@ const ApexDashboard = () => {
                       className="crm-checkbox"
                     />
                   </th>
-                  <th className="px-6 py-4 cursor-pointer select-none hover:text-white transition-colors" onClick={() => handleSort("name")}>
-                    <span className="flex items-center justify-center">Project <SortIcon column="name" sortKey={sortKey} sortDir={sortDir} /></span>
+                  <th className="px-6 py-4 text-left cursor-pointer select-none hover:text-white transition-colors" onClick={() => handleSort("name")}>
+                    <span className="flex items-center">Project <SortIcon column="name" sortKey={sortKey} sortDir={sortDir} /></span>
                   </th>
                   <th className="px-6 py-4 cursor-pointer select-none hover:text-white transition-colors" onClick={() => handleSort("contract_value")}>
                     <span className="flex items-center justify-center">Value <SortIcon column="contract_value" sortKey={sortKey} sortDir={sortDir} /></span>
@@ -1094,7 +1094,7 @@ const ApexDashboard = () => {
                         <td className="px-3 py-4" onClick={(e) => e.stopPropagation()}>
                           <input type="checkbox" checked={bulkSelected.has(p.id)} onChange={() => toggleBulkSelect(p.id)} className="crm-checkbox" />
                         </td>
-                        <td className="px-6 py-3">
+                        <td className="px-6 py-3 text-left">
                           {p.created_at && (
                             <span className="text-[10px] text-gray-600 inline-flex items-center gap-0.5 mb-0.5">
                               <Clock size={9} /> {relativeTime(p.created_at)}
