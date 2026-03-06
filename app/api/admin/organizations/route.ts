@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
     .order('created_at', { ascending: false });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Operation failed' }, { status: 500 });
   }
 
   // Get member counts per org
@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Operation failed' }, { status: 500 });
   }
 
   return NextResponse.json(org);
@@ -142,7 +142,7 @@ export async function DELETE(req: NextRequest) {
   const { error } = await supabaseAdmin.from('organizations').delete().eq('id', orgId);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Operation failed' }, { status: 500 });
   }
 
   return NextResponse.json({ success: true });

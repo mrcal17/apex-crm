@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
       .order('created_at', { ascending: false });
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: 'Operation failed' }, { status: 500 });
     }
 
     return NextResponse.json(data || []);
@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
     .order('created_at', { ascending: true });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Operation failed' }, { status: 500 });
   }
 
   const { data: approvedProfiles } = await supabaseAdmin
@@ -92,7 +92,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   if (action === 'approve') {
-    const assignRole = role || 'admin';
+    const assignRole = role || 'sales_rep';
     const validRoles = ['admin', 'manager', 'sales_rep'];
     if (!validRoles.includes(assignRole)) {
       return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
@@ -109,7 +109,7 @@ export async function PATCH(req: NextRequest) {
       .eq('id', profileId);
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: 'Operation failed' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
@@ -122,7 +122,7 @@ export async function PATCH(req: NextRequest) {
       .eq('id', profileId);
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: 'Operation failed' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
@@ -174,7 +174,7 @@ export async function PUT(req: NextRequest) {
     .eq('id', profileId);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Operation failed' }, { status: 500 });
   }
 
   return NextResponse.json({ success: true });
@@ -215,7 +215,7 @@ export async function DELETE(req: NextRequest) {
     .eq('id', profileId);
 
   if (profileError) {
-    return NextResponse.json({ error: profileError.message }, { status: 500 });
+    return NextResponse.json({ error: 'Operation failed' }, { status: 500 });
   }
 
   // Delete the auth user

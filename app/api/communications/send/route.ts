@@ -39,6 +39,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Channel must be "email" or "sms"' }, { status: 400 });
   }
 
+  // Validate project belongs to user's org
+  if (project_id) {
+    const { data: proj } = await supabaseAdmin
+      .from('projects')
+      .select('id')
+      .eq('id', project_id)
+      .eq('organization_id', profile.organization_id)
+      .single();
+    if (!proj) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+  }
+
+  // Validate contact belongs to user's org
+  if (contact_id) {
+    const { data: contact } = await supabaseAdmin
+      .from('contacts')
+      .select('id')
+      .eq('id', contact_id)
+      .eq('organization_id', profile.organization_id)
+      .single();
+    if (!contact) return NextResponse.json({ error: 'Contact not found' }, { status: 404 });
+  }
+
   try {
     let status = 'sent';
 
@@ -86,6 +108,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, communication: comm });
   } catch (err: any) {
     console.error('[Communications] Send error:', err);
-    return NextResponse.json({ error: err.message || 'Failed to send' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to send' }, { status: 500 });
   }
 }

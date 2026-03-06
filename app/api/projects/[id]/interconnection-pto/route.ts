@@ -21,12 +21,39 @@ async function authenticateUser(req: NextRequest) {
   return user;
 }
 
+async function getUserOrgId(authUserId: string): Promise<string | null> {
+  const { data } = await supabaseAdmin
+    .from('profiles')
+    .select('organization_id')
+    .eq('auth_user_id', authUserId)
+    .eq('approval_status', 'approved')
+    .single();
+  return data?.organization_id || null;
+}
+
+async function verifyProjectOwnership(projectId: string, orgId: string): Promise<boolean> {
+  const { data } = await supabaseAdmin
+    .from('projects')
+    .select('id')
+    .eq('id', projectId)
+    .eq('organization_id', orgId)
+    .single();
+  return !!data;
+}
+
 // GET /api/projects/[id]/interconnection-pto
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await authenticateUser(req);
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+  const orgId = await getUserOrgId(user.id);
+  if (!orgId) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+
   const { id } = await params;
+
+  if (!await verifyProjectOwnership(id, orgId)) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
 
   const { data, error } = await supabaseAdmin
     .from('projects')
@@ -34,7 +61,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     .eq('id', id)
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 404 });
+  if (error) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   return NextResponse.json(data);
 }
 
@@ -43,7 +70,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const user = await authenticateUser(req);
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+  const orgId = await getUserOrgId(user.id);
+  if (!orgId) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+
   const { id } = await params;
+
+  if (!await verifyProjectOwnership(id, orgId)) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
 
   try {
     const body = await req.json();
@@ -111,7 +145,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       .select('id, interconnection_status, interconnection_submitted_at, interconnection_approved_at, pto_status, pto_submitted_at, pto_granted_at, utility_name, utility_checklist')
       .single();
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    if (error) return NextResponse.json({ error: 'Failed to update' }, { status: 400 });
     return NextResponse.json(data);
   } catch {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });

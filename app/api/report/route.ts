@@ -32,16 +32,31 @@ export async function GET(req: NextRequest) {
 
   const supabase = supabaseAdmin;
   const orgId = profile.organization_id;
+  const userRole = profile.role;
   const type = req.nextUrl.searchParams.get('type') || 'commissions';
   const format = req.nextUrl.searchParams.get('format') || 'csv';
 
+  // Get user's profile ID for role-based filtering
+  const { data: fullProfile } = await supabaseAdmin
+    .from('profiles')
+    .select('id')
+    .eq('auth_user_id', user.id)
+    .single();
+
   try {
     if (type === 'commissions') {
-      const { data: commissions } = await supabase
+      let commQuery = supabase
         .from('commissions')
         .select('*, profiles(full_name), projects!inner(name, organization_id)')
         .eq('projects.organization_id', orgId)
         .order('created_at', { ascending: false });
+
+      // Sales reps can only see their own commissions
+      if (userRole === 'sales_rep' && fullProfile) {
+        commQuery = commQuery.eq('profile_id', fullProfile.id);
+      }
+
+      const { data: commissions } = await commQuery;
 
       if (format === 'csv') {
         const lines: string[] = [csvRow(['Sales Rep', 'Project', 'Amount', 'Status', 'Date'])];
@@ -94,11 +109,18 @@ export async function GET(req: NextRequest) {
     }
 
     if (type === 'projects') {
-      const { data: projects } = await supabase
+      let projQuery = supabase
         .from('projects')
         .select('*, profiles(full_name)')
         .eq('organization_id', orgId)
         .order('created_at', { ascending: false });
+
+      // Sales reps can only see their own projects
+      if (userRole === 'sales_rep' && fullProfile) {
+        projQuery = projQuery.eq('assigned_to', fullProfile.id);
+      }
+
+      const { data: projects } = await projQuery;
 
       if (format === 'csv') {
         const lines: string[] = [csvRow(['Project', 'Client', 'Sales Rep', 'Contract Value', 'Revenue Collected', 'Status', 'Created'])];

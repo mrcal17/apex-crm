@@ -89,7 +89,7 @@ export async function GET(req: NextRequest) {
 
     const { data, error } = await supabaseAdmin
       .from('user_sessions')
-      .select('id, session_token, device_info, ip_address, created_at, last_active_at')
+      .select('id, device_info, ip_address, created_at, last_active_at')
       .eq('user_id', user.id)
       .order('last_active_at', { ascending: false });
 

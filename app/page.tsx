@@ -231,9 +231,9 @@ const ApexDashboard = () => {
       if (!silent) setLoading(true);
       else setRefreshing(true);
       const [permitStats, projectList, cStats, settings, commsData, permitsData, profilesData] = await Promise.all([
-        projectService.getPermitStats(),
-        projectService.getProjects(),
-        projectService.getCommissionStats(),
+        projectService.getPermitStats().catch(() => ({ activePermits: 0, expiringPermits: 0 })),
+        projectService.getProjects().catch(() => []),
+        projectService.getCommissionStats().catch(() => ({ total: 0, paid: 0, unpaid: 0, count: 0 })),
         projectService.getSettings().catch(() => ({})),
         projectService.getAllCommissions().catch(() => []),
         projectService.getAllPermits().catch(() => []),
