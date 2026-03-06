@@ -228,19 +228,19 @@ export default function TasksPanel({ projects = [], onTasksLoaded }: TasksPanelP
               <label className="block text-[10px] text-gray-500 mb-1">Priority</label>
               <select value={form.priority} onChange={e => setForm({ ...form, priority: e.target.value })}
                 className={inputCls}>
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-                <option value="urgent">Urgent</option>
+                <option value="low" className="bg-[#0c1222]">Low</option>
+                <option value="medium" className="bg-[#0c1222]">Medium</option>
+                <option value="high" className="bg-[#0c1222]">High</option>
+                <option value="urgent" className="bg-[#0c1222]">Urgent</option>
               </select>
             </div>
             <div>
               <label className="block text-[10px] text-gray-500 mb-1">Project</label>
               <select value={form.project_id} onChange={e => setForm({ ...form, project_id: e.target.value })}
                 className={inputCls}>
-                <option value="">None</option>
+                <option value="" className="bg-[#0c1222]">None</option>
                 {projects.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
+                  <option key={p.id} value={p.id} className="bg-[#0c1222]">{p.name}</option>
                 ))}
               </select>
             </div>
@@ -270,7 +270,7 @@ export default function TasksPanel({ projects = [], onTasksLoaded }: TasksPanelP
             const priConfig = PRIORITY_CONFIG[task.priority] || PRIORITY_CONFIG.medium;
 
             return (
-              <div key={task.id} className={`px-4 py-3 flex items-start gap-3 group transition-colors hover:bg-white/[0.02] ${task.completed ? "opacity-50" : ""}`}>
+              <div key={task.id} className={`px-4 py-4 flex items-start gap-3 group transition-colors hover:bg-white/[0.02] ${task.completed ? "opacity-50" : ""}`}>
                 <button
                   onClick={() => toggleComplete(task)}
                   className={`mt-0.5 shrink-0 transition-colors ${task.completed ? "text-emerald-400" : "text-gray-600 hover:text-emerald-400"}`}
