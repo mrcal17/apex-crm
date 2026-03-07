@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Monitor, Smartphone, Tablet, Globe, Loader2, LogOut, Shield } from "lucide-react";
+import { supabase } from "../../lib/projectService";
 
 interface SessionInfo {
   id: string;
@@ -73,24 +74,32 @@ export default function ActiveSessions() {
 
   const currentToken = typeof window !== "undefined" ? localStorage.getItem("gch-session-token") : null;
 
+  const getAuthHeaders = useCallback(async () => {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token || "";
+    return { Authorization: `Bearer ${token}` };
+  }, []);
+
   const fetchSessions = useCallback(async () => {
     try {
-      const res = await fetch("/api/auth/sessions");
+      const headers = await getAuthHeaders();
+      const res = await fetch("/api/auth/sessions", { headers });
       if (!res.ok) return;
       const { sessions: data } = await res.json();
       setSessions(data ?? []);
     } catch { /* ignore */ }
     finally { setLoading(false); }
-  }, []);
+  }, [getAuthHeaders]);
 
   useEffect(() => { fetchSessions(); }, [fetchSessions]);
 
   async function revokeSession(sessionId: string) {
     setRevoking(sessionId);
     try {
+      const authHeaders = await getAuthHeaders();
       const res = await fetch("/api/auth/sessions", {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders },
         body: JSON.stringify({ sessionId }),
       });
       if (res.ok) {

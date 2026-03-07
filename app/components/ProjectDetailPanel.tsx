@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { X, DollarSign, FileText, CheckCircle, Clock, User, Edit3, MessageSquare, Send, Trash2, ArrowRight } from "lucide-react";
+import { X, DollarSign, FileText, CheckCircle, Clock, User, Edit3, MessageSquare, Send, Trash2, ArrowRight, Link } from "lucide-react";
+import dynamic from "next/dynamic";
+const DocumentsPanel = dynamic(() => import("./DocumentsPanel"), { ssr: false, loading: () => null });
+const CustomerPortalButton = dynamic(() => import("./CustomerPortalButton"), { ssr: false, loading: () => null });
 import { projectService, supabase } from "../../lib/projectService";
 import { relativeTime } from "../hooks/useRelativeTime";
 import BlueprintVault from "./BlueprintVault";
@@ -314,6 +317,17 @@ export default function ProjectDetailPanel({ projectId, onClose, onEdit, role = 
               </h3>
               <BlueprintVault projectId={projectId} role={role} compact />
             </div>
+
+            {/* Documents */}
+            <div>
+              <h3 className="text-xs uppercase text-gray-500 font-semibold tracking-wider mb-2 flex items-center gap-1.5">
+                <FileText size={12} /> Documents
+              </h3>
+              <DocumentsPanel projectId={projectId} role={role} />
+            </div>
+
+            {/* Customer Portal */}
+            <CustomerPortalButton projectId={projectId} projectName={project?.name || "Project"} />
 
             {/* Communications */}
             <div>

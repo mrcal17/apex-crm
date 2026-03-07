@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import dynamic from "next/dynamic";
 import {
   LayoutDashboard,
@@ -81,6 +81,17 @@ const AdminApprovalPanel = dynamic(() => import("./components/AdminApprovalPanel
 const AdminControlsPanel = dynamic(() => import("./components/AdminControlsPanel"), { ssr: false, loading: TabSpinner });
 const PipelineMetrics = dynamic(() => import("./components/PipelineMetrics"), { ssr: false, loading: TabSpinner });
 const FilterBar = dynamic(() => import("./components/FilterBar"), { ssr: false, loading: () => null });
+const WinLossAnalysis = dynamic(() => import("./components/WinLossAnalysis"), { ssr: false, loading: TabSpinner });
+const ForecastingV2 = dynamic(() => import("./components/ForecastingV2"), { ssr: false, loading: TabSpinner });
+const DocumentsPanel = dynamic(() => import("./components/DocumentsPanel"), { ssr: false, loading: TabSpinner });
+const ProposalBuilder = dynamic(() => import("./components/ProposalBuilder"), { ssr: false, loading: TabSpinner });
+const ProjectTemplates = dynamic(() => import("./components/ProjectTemplates"), { ssr: false, loading: TabSpinner });
+const WorkflowRules = dynamic(() => import("./components/WorkflowRules"), { ssr: false, loading: TabSpinner });
+const ScheduledFollowups = dynamic(() => import("./components/ScheduledFollowups"), { ssr: false, loading: TabSpinner });
+const ReportsBuilder = dynamic(() => import("./components/ReportsBuilder"), { ssr: false, loading: TabSpinner });
+const WebhookManager = dynamic(() => import("./components/WebhookManager"), { ssr: false, loading: TabSpinner });
+const AccountingExports = dynamic(() => import("./components/AccountingExports"), { ssr: false, loading: TabSpinner });
+const CustomerPortalButton = dynamic(() => import("./components/CustomerPortalButton"), { ssr: false, loading: () => null });
 import { TAB_ACCESS, PERMISSIONS, _v, _rl, type Role, type TabKey as RoleTabKey } from "../lib/roles";
 import { formatStatus, statusClasses } from "../lib/statusConfig";
 
@@ -92,6 +103,8 @@ const TABS = [
   { key: "site-explorer", label: "Site Explorer", icon: Globe },
   { key: "permits", label: "Permits", icon: FileText },
   { key: "contacts", label: "Contacts", icon: BookUser },
+  { key: "proposals", label: "Proposals", icon: Briefcase },
+  { key: "reports", label: "Reports", icon: BarChart2 },
   { key: "settings", label: "Settings", icon: Settings },
   { key: "admin-controls", label: "Admin Controls", icon: Shield },
 ] as const;
@@ -145,6 +158,7 @@ const ApexDashboard = () => {
   const toast = useToast();
   const { session, profile, role, profileId, organizationName, isApproved, isPending, loading: authLoading, signOut } = useAuth();
   const [loading, setLoading] = useState(true);
+  const hasLoadedOnce = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState({ totalPipeline: 0, totalCollected: 0, activePermits: 0, expiringPermits: 0 });
   const [commissionStats, setCommissionStats] = useState({ total: 0, paid: 0, unpaid: 0, count: 0 });
@@ -228,7 +242,9 @@ const ApexDashboard = () => {
 
   const fetchData = useCallback(async (silent = false) => {
     try {
-      if (!silent) setLoading(true);
+      // After first successful load, treat subsequent fetches as silent refreshes
+      // to avoid flashing the skeleton screen
+      if (!silent && !hasLoadedOnce.current) setLoading(true);
       else setRefreshing(true);
 
       const timeout = <T,>(p: Promise<T>, ms: number, fallback: T): Promise<T> =>
@@ -261,6 +277,7 @@ const ApexDashboard = () => {
       setAllPermits(permitsData || []);
       setTeamProfiles((profilesData || []).map((p: any) => ({ id: p.id, full_name: p.full_name })));
       setCrmSettings(settings);
+      hasLoadedOnce.current = true;
     } catch (err) {
       console.error("Error fetching dashboard data:", err);
     } finally {
@@ -270,16 +287,17 @@ const ApexDashboard = () => {
   }, []);
 
   // Fetch data once auth resolves
-  // Uses profileId (string) as dep instead of session (object) to avoid
-  // reference equality issues on normal refresh
+  // Uses session?.user?.id (string) as dep instead of session (object) to avoid
+  // re-triggering when onAuthStateChange and getSession return different object refs
+  const sessionUserId = session?.user?.id;
   useEffect(() => {
     if (authLoading) return;
-    if (!session) { setLoading(false); return; }
+    if (!sessionUserId) { setLoading(false); return; }
     fetchData();
-  }, [fetchData, authLoading, session]);
+  }, [fetchData, authLoading, sessionUserId]);
 
   useEffect(() => {
-    if (authLoading || !session) return;
+    if (authLoading || !sessionUserId) return;
     const channel = supabase
       .channel("dashboard-changes")
       .on("postgres_changes", { event: "*", schema: "public", table: "projects" }, () => fetchData(true))
@@ -288,7 +306,7 @@ const ApexDashboard = () => {
       .on("postgres_changes", { event: "*", schema: "public", table: "settings" }, () => fetchData(true))
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [fetchData, authLoading, session]);
+  }, [fetchData, authLoading, sessionUserId]);
 
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
@@ -622,12 +640,14 @@ const ApexDashboard = () => {
             <p className="text-xs text-gray-500 mt-0.5">
               {activeTab === "dashboard" ? "Overview & project tracking" :
                activeTab === "kanban" ? "Drag & drop pipeline" :
-               activeTab === "analytics" ? "Performance & metrics" :
+               activeTab === "analytics" ? "Performance, forecasting & win/loss" :
                activeTab === "team" ? "Members & commissions" :
                activeTab === "site-explorer" ? "Solar analysis & leads" :
                activeTab === "permits" ? "Permit management" :
                activeTab === "contacts" ? "Client directory" :
-               activeTab === "settings" ? "CRM configuration" :
+               activeTab === "proposals" ? "Templates, follow-ups & proposals" :
+               activeTab === "reports" ? "Custom reports & exports" :
+               activeTab === "settings" ? "Configuration, workflows & integrations" :
                activeTab === "admin-controls" ? "System administration" : ""}
             </p>
           </div>
@@ -1193,7 +1213,11 @@ const ApexDashboard = () => {
       {activeTab === "analytics" && (
         <div className="mt-6 space-y-6">
           <PipelineMetrics projects={projects} />
-          <RevenueForecast projects={projects} revenueGoal={revenueGoal} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <ForecastingV2 projects={projects} revenueGoal={revenueGoal} />
+            <RevenueForecast projects={projects} revenueGoal={revenueGoal} />
+          </div>
+          <WinLossAnalysis projects={projects} />
           <SalesPerformance />
           <ActivityLog role={role} />
         </div>
@@ -1255,12 +1279,36 @@ const ApexDashboard = () => {
         </div>
       )}
 
+      {/* === PROPOSALS TAB === */}
+      {activeTab === "proposals" && (
+        <div className="mt-6 space-y-5">
+          <ScheduledFollowups />
+          <ProjectTemplates
+            onCreateFromTemplate={(template) => {
+              setNewModalOpen(true);
+              // Template data will pre-fill via the modal
+            }}
+            role={role}
+          />
+        </div>
+      )}
+
+      {/* === REPORTS TAB === */}
+      {activeTab === "reports" && (
+        <div className="mt-6 space-y-5">
+          <ReportsBuilder projects={projects} commissions={allCommissions} permits={allPermits} />
+          <AccountingExports />
+        </div>
+      )}
+
       {/* === SETTINGS TAB === */}
       {activeTab === "settings" && (
         <div className="mt-6 space-y-6">
           {PERMISSIONS.canMarkCommissionPaid(role) && (
             <SettingsPanel onSettingsSaved={(s) => { setCrmSettings(s); fetchData(true); }} />
           )}
+          {PERMISSIONS.canMarkCommissionPaid(role) && <WorkflowRules role={role} />}
+          {PERMISSIONS.canMarkCommissionPaid(role) && <WebhookManager />}
           <div className="max-w-2xl mx-auto">
             <ActiveSessions />
           </div>

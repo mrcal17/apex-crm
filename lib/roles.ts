@@ -3,7 +3,8 @@ export type Role = 'superadmin' | 'admin' | 'manager' | 'sales_rep';
 export type TabKey =
   | 'dashboard' | 'kanban' | 'analytics' | 'team'
   | 'vault' | 'site-explorer' | 'permits'
-  | 'contacts' | 'settings' | 'admin-controls';
+  | 'contacts' | 'proposals' | 'reports'
+  | 'settings' | 'admin-controls';
 
 const _m = atob('c3VwZXJhZG1pbg==');
 const _a = atob('YWRtaW4=');
@@ -23,6 +24,8 @@ export const TAB_ACCESS: Record<TabKey, Role[]> = {
   'site-explorer':  [_m, _a, _g, _s] as Role[],
   permits:          [_m, _a, _g, _s] as Role[],
   contacts:         [_m, _a, _g, _s] as Role[],
+  proposals:        [_m, _a, _g, _s] as Role[],
+  reports:          [_m, _a, _g] as Role[],
   settings:         [_m, _a, _g, _s] as Role[],
   'admin-controls': [_m] as Role[],
 };

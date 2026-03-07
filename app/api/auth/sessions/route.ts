@@ -8,6 +8,15 @@ const supabaseAdmin = createClient(
 );
 
 async function getUser(req: NextRequest) {
+  // Try Authorization header first (Bearer token from client)
+  const authHeader = req.headers.get('authorization');
+  if (authHeader?.startsWith('Bearer ')) {
+    const token = authHeader.slice(7);
+    const { data: { user } } = await supabaseAdmin.auth.getUser(token);
+    if (user) return user;
+  }
+
+  // Fallback to cookie-based auth
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -89,7 +98,7 @@ export async function GET(req: NextRequest) {
 
     const { data, error } = await supabaseAdmin
       .from('user_sessions')
-      .select('id, device_info, ip_address, created_at, last_active_at')
+      .select('id, session_token, device_info, ip_address, created_at, last_active_at')
       .eq('user_id', user.id)
       .order('last_active_at', { ascending: false });
 
